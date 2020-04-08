@@ -1,0 +1,23 @@
+{
+    "CN": "etcd",
+    "hosts": [
+          {% for host in approve_hosts["etcd"] %}
+            {% if loop.last %}
+              "{{ host }}"
+            {% else %}
+              "{{ host }}",
+	    {% endif %}
+	  {% endfor%}
+        ],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+            "C": "CN",
+            "L": "BeiJing",
+            "ST": "BeiJing"
+        }
+    ]
+}

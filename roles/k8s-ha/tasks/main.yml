@@ -1,0 +1,49 @@
+---
+# tasks file for k8s-ha
+
+- name: 获取项目根目录
+  shell: pwd | sed 's/roles.*//'
+  connection: local
+  register: project_dir
+- debug: msg={{ project_dir.stdout }}
+
+- name: 创建临时工作目录
+  file: path={{ tmp_dir }} state=directory
+
+- name: 准备epel-release源
+  yum: name=epel-release state=present
+
+- name: 安装keepalived高可用软件
+  yum: name=keepalived state=present
+
+- name: 解决安装nginx所需依赖
+  yum: name={{ item.value }} state=present
+  with_dict:
+    - {packages: ['gcc','openssl-devel','pcre-devel','zlib-devel']}
+
+- name: 分发并解压nginx安装包
+  unarchive: src={{ project_dir.stdout }}/binary_pkg/nginx-{{ nginx_version }}.tar.gz dest={{ tmp_dir }}
+
+- name: 开始编译安装nginx
+  shell: |
+       cd {{ tmp_dir }}/nginx-{{ nginx_version }}
+       ./configure --prefix={{ nginx_dir }} --with-http_gzip_static_module --with-http_ssl_module --with-stream --with-stream_ssl_module
+       make && make install
+
+- name: 分发nginx配置文件
+  template: src=nginx.conf dest={{ nginx_dir }}/conf/nginx.conf
+
+- name: 分发keepalived配置文件
+  template: src=keepalived.conf dest=/etc/keepalived/keepalived.conf
+
+- name: 分发nginx服务启动文件
+  template: src=nginx.service dest=/usr/lib/systemd/system/nginx.service
+
+- name: 分发nginx状态检查脚本
+  template: src=check_nginx_status.sh dest=/etc/keepalived/check_nginx_status.sh
+
+- name: 启动nginx服务
+  systemd: name=nginx state=reloaded enabled=True daemon_reload=yes
+
+- name: 启动keepalived服务
+  systemd: name=keepalived state=reloaded enabled=True daemon_reload=yes

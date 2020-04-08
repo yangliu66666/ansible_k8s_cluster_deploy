@@ -1,0 +1,22 @@
+#[Member]
+# 修改为每个节点hostname
+ETCD_NAME="{{ hostvars[inventory_hostname]['etcd_node_name'] }}" 
+# etcd 数据存储位置
+ETCD_DATA_DIR="{{ etcd_data_dir}}" 
+# 集群内部访问地址
+ETCD_LISTEN_PEER_URLS="https://{{ inventory_hostname }}:2380" 
+# 集群外部访问地址
+ETCD_LISTEN_CLIENT_URLS="https://{{ inventory_hostname }}:2379" 
+
+#[Clustering]
+# 集群内部访问地址
+ETCD_INITIAL_ADVERTISE_PEER_URLS="https://{{ inventory_hostname }}:2380"
+# 集群外部访问地址
+ETCD_ADVERTISE_CLIENT_URLS="https://{{ inventory_hostname }}:2379"
+# 集群所有节点地址
+ETCD_INITIAL_CLUSTER="{% for host in groups['etcd'] %}{% if loop.last %}{{ hostvars[host]['etcd_node_name'] }}=https://{{ host }}:2380" {% else %}{{ hostvars[host]['etcd_node_name'] }}=https://{{ host }}:2380,{% endif %}{% endfor %}
+
+# 集群标识
+ETCD_INITIAL_CLUSTER_TOKEN="etcd-cluster"
+# 状态：(new|existing)
+ETCD_INITIAL_CLUSTER_STATE="new"

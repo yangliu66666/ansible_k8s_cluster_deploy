@@ -1,0 +1,85 @@
+##########################Default Config##################################################################
+
+# 高可用配置(单master忽略)
+
+# 如果部署在公有云并且使用多master的高可用架构,请直接对接公有云的LB产品并修改vip为公有云LB地址
+vip: "192.168.1.60" # keepalived虚拟IP
+
+# 公有云忽略nic参数
+nic: "enp0s3" # 虚拟IP绑定的网卡名称
+
+# 如果master节点和lb节点是同一台服务器请修改端口防止端口冲突 
+nginx_listen_port: 6443 
+
+# nginx的安装版本要与binary_pkg目录下的文件版本一致
+nginx_version: "1.16.1"
+
+# nginx的安装目录
+nginx_dir: "/usr/local/lb-nginx"
+
+# 临时工作目录
+tmp_dir: "/tmp/k8s_install_tmp"
+
+# 时间同步服务器地址
+ntpdate_server: 'ntp.aliyun.com'
+
+# 自签证书添加可信任主机ip
+# 注:后期如果要扩展节点,要把节点ip提前规划出来并加入可信任
+approve_hosts:
+
+  # 添加etcd集群所有主机的ip
+  etcd:
+    - 192.168.1.63
+    - 192.168.1.65
+    - 192.168.1.66
+
+  # 添加master、etcd、lb、vip节点的所有ip和service_cidr中的第一个ip
+  kubernetes:
+    - 10.0.0.1
+    - 192.168.1.60
+    - 192.168.1.63
+    - 192.168.1.65
+    - 192.168.1.66
+
+###########################Etcd Service Config#############################################################
+
+# 集群安装目录
+etcd_dir: "/usr/local/etcd"
+
+# 集群部署版本
+etcd_version: "v3.3.13"
+
+# etcd 数据存储位置
+etcd_data_dir: "/var/lib/etcd/default.etcd"
+
+###########################Kubernetes Service Config########################################################
+
+# 集群网络配置
+service_cidr: "10.0.0.0/24" # 提供给集群中service服务使用
+cluster_cidr: "10.244.0.0/16" # 提供给节点上的pods使用
+cluster_dns: "10.0.0.2" # 集群中的dns地址
+service_node_port_range: 30000-40000 # service使用nodePort暴露端口的范围
+
+# kube-apiserver监听端口
+kube_api_listen_port: 6443
+
+# 启动pods时存储docker信息pod的镜像地址
+pod_infra_container_image: "liuyang666/pause-amd64:3.0"
+
+# cni网络插件版本
+cni_version: "0.8.5"
+
+# docker容器引擎版本
+docker_version: "18.09.9"
+
+# docker私有仓库添加ip信任
+docker_insecure_registries: 
+  - "127.0.0.1"
+  - "192.168.1.65"
+  - "192.168.1.66"
+
+# 集群安装目录
+node_dir: "/usr/local/kubernetes"
+cni_dir: "/usr/local/cni"
+master_dir: "/usr/local/kubernetes"
+docker_dir: "/usr/local/docker"

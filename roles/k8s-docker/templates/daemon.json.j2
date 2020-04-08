@@ -1,0 +1,4 @@
+{
+    "registry-mirrors": ["http://bc437cce.m.daocloud.io"],
+    "insecure-registries": [{% for host in docker_insecure_registries %}{% if loop.last %}"{{ host }}"{% else %}"{{ host }}",{% endif %}{% endfor %}]
+}

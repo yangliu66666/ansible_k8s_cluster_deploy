@@ -1,0 +1,59 @@
+---
+- name: 初始化系统
+  hosts:
+   - k8s
+   - etcd
+  remote_user: root
+  gather_facts: False
+  roles:
+    - sys-init 
+  tags: init  
+
+- name: 签发k8s集群所用证书
+  hosts:
+    - localhost
+  gather_facts: False
+  roles:
+    - k8s-tls
+  tags: tls
+
+- name: 部署etcd集群
+  hosts:
+    - etcd
+  gather_facts: False
+  roles:
+    - k8s-etcd
+  tags: etcd
+
+- name: 部署k8s-master节点
+  hosts:
+    - master
+  gather_facts: False
+  roles:
+    - k8s-master
+  tags: master
+
+- name: 部署docker容器引擎
+  hosts:
+    - node
+  gather_facts: False
+  roles:
+    - k8s-docker
+  tags: docker
+
+- name: 部署k8s-node节点
+  hosts:
+    - node
+  gather_facts: False
+  roles:
+    - k8s-node
+  tags: node
+
+- name: 部署插件
+  hosts:
+    - master
+  gather_facts: False
+  roles:
+    - k8s-plugins
+  tags: plugins
+

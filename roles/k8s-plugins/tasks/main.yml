@@ -1,0 +1,58 @@
+---
+# tasks file for k8s-plugins
+
+- name: 允许node加入集群
+  shell: kubectl certificate  approve `kubectl get csr | awk 'NR!=1{print $1}'`
+  ignore_errors: yes
+
+- name: 拷贝插件yaml文件到远端目录
+  template: src={{ item }} dest={{ tmp_dir }}/{{ item }}
+  with_items:
+    - coredns.yaml  
+    - kube-flannel.yaml  
+    - kube-ui.yaml  
+    - nginx-ingress-controller.yaml
+
+- name: 开始部署Flannel
+  ignore_errors: yes
+  shell: kubectl apply -f {{ tmp_dir }}/kube-flannel.yaml
+
+- name: 开始部署CoreDns
+  ignore_errors: yes
+  shell: kubectl apply -f {{ tmp_dir }}/coredns.yaml
+
+- name: 开始部署nginx-ingress-controller
+  ignore_errors: yes
+  shell: kubectl apply -f {{ tmp_dir }}/nginx-ingress-controller.yaml
+
+- name: 开始部署web-ui
+  ignore_errors: yes
+  shell: kubectl apply -f {{ tmp_dir }}/kube-ui.yaml
+
+- name: 创建web-ui的https证书
+  ignore_errors: yes
+  shell: |
+       kubectl delete secret kubernetes-dashboard-certs -n kubernetes-dashboard
+       kubectl create secret generic kubernetes-dashboard-certs \
+       --from-file={{ master_dir }}/ssl/kube-apiserver-key.pem --from-file={{ master_dir }}/ssl/kube-apiserver.pem -n kubernetes-dashboard
+       kubectl apply -f {{ tmp_dir }}/kube-ui.yaml
+
+- name: 检查插件状态：
+  shell: kubectl get all -A
+  register: plugins_status
+- debug: msg={{ plugins_status.stdout_lines }}
+
+- name: 创建web-ui管理员token
+  ignore_errors: yes
+  shell: |
+       kubectl create serviceaccount dashboard-admin -n kubernetes-dashboard
+       kubectl create clusterrolebinding dashboard-admin --clusterrole=cluster-admin --serviceaccount=kubernetes-dashboard:dashboard-admin
+
+- name: 获取web-ui管理员token
+  shell: |
+         token=$(kubectl describe secrets -n kubernetes-dashboard $(kubectl get secret -n kubernetes-dashboard | awk '/dashboard-admin/{print $1}') |awk '/^token/{print $2}')
+         echo "web-ui访问地址:  https://NodeIP:30001"
+         echo "管理员token:  $token" 
+  register: web_info
+- debug: msg={{ web_info.stdout_lines }}
+

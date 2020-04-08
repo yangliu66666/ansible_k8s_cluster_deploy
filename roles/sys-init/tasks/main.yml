@@ -1,0 +1,32 @@
+---
+# tasks file for sys-init
+- name: 关闭firewalld防火墙
+  service: name=firewalld state=stopped enabled=False
+
+- name: 临时关闭selinux策略
+  shell: setenforce 0
+  ignore_errors: yes
+
+- name: 永久关闭selinux策略
+  lineinfile:
+     dest: /etc/selinux/config
+     regexp: '^SELINUX='
+     line: 'SELINUX=disabled'
+
+- name: 临时关闭swap分区
+  shell: swapoff -a
+
+- name: 永久关闭swap分区
+  lineinfile:
+     dest: /etc/fstab
+     regexp: 'swap'
+     line: ''
+
+- name: 安装ntpdate时间同步工具
+  yum: name=ntpdate state=present
+
+- name: 系统时间同步 {{ ntpdate_server }}
+  shell: ntpdate {{ ntpdate_server }}
+
+- name: 配置本地hosts文件
+  template: src=hosts.j2 dest=/etc/hosts

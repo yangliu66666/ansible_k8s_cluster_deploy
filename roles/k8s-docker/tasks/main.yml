@@ -1,0 +1,84 @@
+---
+# tasks file for k8s-docker
+
+- name: 获取项目根目录
+  shell: pwd | sed 's/roles.*//'
+  connection: local
+  register: project_dir
+- debug: msg={{ project_dir.stdout }}
+
+- name: 创建临时工作目录
+  file: path={{ tmp_dir }} state=directory
+
+- name: 创建docker工作目录
+  file:
+    path: "{{ docker_dir }}/{{ item }}"
+    state: directory
+  with_items:
+    - bin
+    - cfg
+
+- name: 分发并解压docker二进制压缩文件
+  unarchive: src={{ project_dir.stdout }}/binary_pkg/docker-{{ docker_version }}.tgz dest={{ tmp_dir }}
+
+- name: 移动docker二进制可执行文件到工作目录
+  shell: mv {{ tmp_dir }}/docker/{{ item }} {{ docker_dir }}/bin/{{ item }}
+  with_items:
+    - ctr  
+    - runc
+    - docker  
+    - dockerd  
+    - docker-init  
+    - docker-proxy  
+    - containerd  
+    - containerd-shim  
+
+- name: 将docker客户端工具拷贝到系统全局变量下
+  shell: mv {{ docker_dir }}/bin/{{ item }} /usr/bin/{{ item }}
+  with_items:
+    - docker
+    - docker-init
+    - runc
+    - containerd
+    - containerd-shim
+
+- name: 分发docker配置文件
+  template: src=daemon.json.j2 dest={{ docker_dir }}/cfg/daemon.json
+
+- name: 分发docker服务启动配置文件
+  template: src=docker.service.j2 dest=/usr/lib/systemd/system/docker.service
+
+- name: 添加节点内核策略
+  lineinfile:
+    path: /etc/sysctl.conf
+    line: "{{ item }}"
+  with_items:
+    - net.bridge.bridge-nf-call-ip6tables = 1
+    - net.bridge.bridge-nf-call-iptables = 1
+    - net.ipv4.ip_forward = 1
+
+- name: 生效内核策略
+  shell: modprobe br_netfilter &&  sysctl -p
+
+- name: 启动docker容器引擎
+  systemd: name=docker state=restarted enabled=True daemon_reload=yes
+
+- name: 分发插件镜像文件
+  copy: src={{ item }} dest={{ tmp_dir }}/
+  with_fileglob:
+    - "{{ project_dir.stdout }}/plugins_images/*.tar"
+
+- name: 获取插件镜像文件列表
+  shell: ls {{ tmp_dir }}/*.tar
+  register: images_list
+- debug: msg={{ images_list.stdout_lines }}
+
+- name: 导入插件镜像文件
+  ignore_errors: yes
+  shell: docker load < {{ item }}
+  with_items:
+    - "{{ images_list.stdout_lines }}"
+  
+
+
+

@@ -1,0 +1,97 @@
+---
+# tasks file for k8s-master
+
+- name: 获取项目根目录
+  shell: pwd | sed 's/roles.*//'
+  connection: local
+  register: project_dir
+- debug: msg={{ project_dir.stdout }}
+
+- name: 创建k8s-master工作目录
+  file:
+    path: "{{ master_dir }}/{{ item }}"
+    state: directory
+  with_items:
+    - bin
+    - cfg
+    - ssl
+    - logs
+
+- name: 创建临时工作目录
+  file:
+    path: "{{ tmp_dir }}"
+    state: directory
+
+- name: 分发并解压kubernetes二进制文件
+  unarchive:
+    src: "{{ project_dir.stdout }}/binary_pkg/kubernetes-server-linux-amd64.tar.gz"
+    dest: "{{ tmp_dir }}"
+
+- name: 移动kubernetes可执行程序到工作目录
+  shell: mv {{ tmp_dir }}/kubernetes/server/bin/{{ item }} {{ master_dir }}/bin/{{ item }}
+  with_items:
+    - kube-apiserver
+    - kube-controller-manager
+    - kube-scheduler
+
+- name: 移动kubectl工具到系统全局环境下
+  shell: mv {{ tmp_dir }}/kubernetes/server/bin/kubectl /usr/bin/kubectl
+
+- name: 分发kube-apiserver证书
+  copy: src={{ project_dir.stdout }}/ssl/k8s/{{ item }}  dest={{ master_dir }}/ssl/{{ item }}
+  with_items:
+    - k8s-ca.pem
+    - k8s-ca-key.pem
+    - kube-apiserver.pem
+    - kube-apiserver-key.pem
+
+- name: 分发etcd-server证书
+  copy: src={{ project_dir.stdout }}/ssl/etcd/{{ item }}  dest={{ master_dir }}/ssl/{{ item }}
+  with_items:
+    - etcd-ca.pem
+    - etcd-server.pem
+    - etcd-server-key.pem
+
+- name: 分发k8s-master配置文件
+  template: src={{ item }} dest={{ master_dir }}/cfg/{{ item }}
+  with_items:
+    - kube-apiserver.conf
+    - kube-controller-manager.conf
+    - kube-scheduler.conf
+
+- name: 分发token.csv文件
+  copy: src=token.csv dest={{ master_dir }}/cfg/token.csv
+
+- name: 分发apiserver访问kubelet授权文件
+  copy: src=apiserver-to-kubelet-rbac.yaml dest={{ tmp_dir }}/apiserver-to-kubelet-rbac.yaml
+
+- name: 分发k8s-master服务启动配置文件
+  template: src={{ item }} dest=/usr/lib/systemd/system/{{ item }}
+  with_items:
+    - kube-apiserver.service
+    - kube-controller-manager.service
+    - kube-scheduler.service
+
+- name: 启动k8s-master服务
+  systemd: 
+    name: "{{ item }}"
+    state: restarted 
+    enabled: True 
+    daemon_reload: yes
+  with_items:
+    - kube-apiserver
+    - kube-controller-manager
+    - kube-scheduler  
+
+- name: 检查kubernetes集群状态
+  shell: |
+        sleep 5 && kubectl get cs -o=jsonpath='{range .items[*]}ServiceName: {.metadata.name}     {range .conditions[*]}Status: {.status}     Message: {.message}{"\n"}{end}{end}'
+  register: k8s_status
+- debug: msg={{ k8s_status.stdout_lines }}
+
+- name: 授权kubelet-bootstrap让kubelet可以动态签名证书加入集群
+  ignore_errors: yes
+  shell: sleep 8 && kubectl create clusterrolebinding kubelet-bootstrap --clusterrole=system:node-bootstrapper --user=kubelet-bootstrap
+
+- name: 授权apiserver访问kubelet
+  shell: sleep 3 && kubectl apply -f {{ tmp_dir }}/apiserver-to-kubelet-rbac.yaml

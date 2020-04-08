@@ -1,0 +1,76 @@
+---
+# tasks file for k8s-node
+
+- name: 获取项目根目录
+  shell: pwd | sed 's/roles.*//'
+  connection: local
+  register: project_dir
+- debug: msg={{ project_dir.stdout }}
+
+- name: 创建k8s-node工作目录
+  file:
+    path: "{{ node_dir }}/{{ item }}"
+    state: directory
+  with_items:
+    - bin
+    - cfg
+    - ssl
+    - logs
+
+- name: 创建临时工作目录
+  file:
+    path: "{{ tmp_dir }}"
+    state: directory
+
+- name: 分发并解压kubernetes二进制文件
+  unarchive:
+    src: "{{ project_dir.stdout }}/binary_pkg/kubernetes-server-linux-amd64.tar.gz"
+    dest: "{{ tmp_dir }}"
+
+- name: 移动kubernetes可执行程序到工作目录
+  shell: mv {{ tmp_dir }}/kubernetes/server/bin/{{ item }} {{ node_dir }}/bin/{{ item }}
+  with_items:
+    - kubelet
+    - kube-proxy
+
+- name: 分发kube-proxy证书
+  copy: src={{ project_dir.stdout }}/ssl/k8s/{{ item }}  dest={{ node_dir }}/ssl/{{ item }}
+  with_items:
+    - k8s-ca.pem
+    - kube-proxy.pem
+    - kube-proxy-key.pem
+
+- name: 分发k8s-node节点配置文件
+  template: src={{ item }} dest={{ node_dir }}/cfg/{{ item }}
+  with_items:
+    - bootstrap.kubeconfig
+    - kubelet.conf
+    - kubelet-config.yml
+    - kube-proxy.conf
+    - kube-proxy-config.yml
+    - kube-proxy.kubeconfig  
+
+- name: 分发k8s-node节点服务启动配置文件
+  template: src={{ item }} dest=/usr/lib/systemd/system/{{ item }}
+  with_items:
+    - kubelet.service
+    - kube-proxy.service
+
+- name: 创建cni网络接口插件工作目录
+  file: path={{ cni_dir }}/{{ item }} state=directory
+  with_items:
+    - bin
+    - net.d
+
+- name: 分发并解压cni网络插件压缩文件
+  unarchive: src={{ project_dir.stdout }}/binary_pkg/cni-plugins-linux-amd64-v{{ cni_version }}.tgz dest={{ cni_dir }}/bin
+
+- name: 启动k8s-node节点服务
+  systemd:
+    name: "{{ item }}"
+    state: restarted
+    enabled: True
+    daemon_reload: yes
+  with_items:
+    - kubelet
+    - kube-proxy 

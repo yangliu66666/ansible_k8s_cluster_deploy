@@ -1,0 +1,23 @@
+[etcd]
+192.168.1.63 etcd_node_name=etcd-1
+192.168.1.65 etcd_node_name=etcd-2
+192.168.1.66 etcd_node_name=etcd-3
+
+[master]
+192.168.1.63  k8s_node_name=k8s-master1
+192.168.1.65  k8s_node_name=k8s-master2
+
+[node]
+192.168.1.66  k8s_node_name=k8s-node1
+
+[ha]
+# 单master忽略
+192.168.1.63  lb_node_name=lb-master
+192.168.1.65  lb_node_name=lb-backup
+
+[add_node]
+192.168.1.70  k8s_node_name=k8s-node3
+
+[k8s:children]
+master
+node
