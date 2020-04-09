@@ -112,7 +112,36 @@ plugins_images： 存放项目的插件所使用的docker镜像包
 # 安装ansible工具
 yum -y install ansible
 
-# 注: 使用之前先修改group_vars/all.yml中的相关信息
+# 在项目根目录下创建二进制压缩包存放目录
+cd ansible_k8s_cluster_deploy && mkdir binary_pkg
+
+# 在项目根目录下创建插件镜像文件压缩包存放目录
+cd ansible_k8s_cluster_deploy && mkdir plugins_images
+
+#下载所需版本的kubernetes二进制包到binary_pkg目录下
+wget -O ansible_k8s_cluster_deploy/binary_pkg/kubernetes-server-linux-amd64.tar.gz  https://storage.googleapis.com/kubernetes-release/release/v1.16.7/kubernetes-server-linux-amd64.tar.gz
+
+#下载所需版本的etcd二进制包到binary_pkg目录下
+wget -O ansible_k8s_cluster_deploy/binary_pkg/etcd-v3.3.13-linux-amd64.tar.gz https://github.com/etcd-io/etcd/releases/download/v3.3.13/etcd-v3.3.13-linux-amd64.tar.gz
+
+#下载所需版本的cni插件二进制包到binary_pkg目录下
+wget -O ansible_k8s_cluster_deploy/binary_pkg/cni-plugins-linux-amd64-v0.8.5.tgz https://github.com/containernetworking/plugins/releases/download/v0.8.5/cni-plugins-linux-amd64-v0.8.5.tgz
+
+#下载所需版本的docker二进制包到binary_pkg目录下
+wget -O ansible_k8s_cluster_deploy/binary_pkg/docker-18.09.9.tgz wget https://download.docker.com/linux/static/stable/x86_64/docker-18.09.9.tgz
+
+#下载所需版本的nginx二进制包到binary_pkg目录下
+wget -O ansible_k8s_cluster_deploy/binary_pkg/nginx-1.16.1.tar.gz http://nginx.org/download/nginx-1.16.1.tar.gz
+
+# 如果网络好请忽略下面插件镜像文件的下载,否则请将以下镜像提前下载好保存到项目目录下的plugins_images目录下
+liuyang666/nginx-ingress-controller:0.30.0
+liuyang666/coredns:1.6.7
+kubernetesui/dashboard:v2.0.0-beta8
+kubernetesui/metrics-scraper:v1.0.1
+liuyang666/flannel:v0.11.0-amd64
+liuyang666/pause-amd64:3.0
+
+# 使用之前先修改group_vars/all.yml中的相关信息
 
 # 使用以下命令部署完成之后,集群中所有ssl证书都存放在项目根目录的ssl文件夹下 (请将ssl文件夹妥善保管和备份)
 
