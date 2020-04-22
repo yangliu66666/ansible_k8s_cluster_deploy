@@ -70,6 +70,7 @@
 
 - name: 获取插件镜像文件列表
   shell: ls {{ tmp_dir }}/*.tar
+  ignore_errors: yes
   register: images_list
 - debug: msg={{ images_list.stdout_lines }}
 
